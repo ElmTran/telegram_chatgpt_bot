@@ -1,0 +1,25 @@
+class Telegram:
+    token = ''
+
+
+class Mysql:
+    host = ''
+    db = ''
+    user = ''
+    password = ''
+
+
+class Openai:
+    api_key = ''
+    model = "gpt-3.5-turbo"
+
+
+class Bot:
+    username = ''
+
+
+class Config:
+    telegram = Telegram()
+    mysql = Mysql()
+    openai = Openai()
+    bot = Bot()
