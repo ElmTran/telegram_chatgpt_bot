@@ -2,3 +2,4 @@ openai==0.27.0
 python_telegram_bot==20.1
 SQLAlchemy==2.0.4
 telegram==0.0.1
+PyMySQL==1.0.2
