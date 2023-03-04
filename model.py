@@ -7,7 +7,7 @@ from config import Config
 from logger import logger
 try:
     engine = create_engine(
-        f"mysql+pymysql://{Config.mysql.user}:{Config.mysql.password}@{Config.mysql.host}/{Config.mysql.db}?charset=utf8mb4",
+        f"mysql+pymysql://{Config.mysql.user}:{Config.mysql.password}@{Config.mysql.host}:{Config.mysql.port}/{Config.mysql.db}?charset=utf8mb4",
     )
 except OperationalError as e:
     logger.error(e)
@@ -68,8 +68,10 @@ def query_sessions(user_id):
         for msg in first_messages:
             if sid == msg.session_id:
                 words = msg.text.split()
-                msg_text = " ".join(words[:5]) + "..." if len(words) > 5 else msg.text
-                msg_text = msg_text[:10] + "..." if len(msg_text) > 10 else msg_text
+                msg_text = " ".join(words[:5]) + \
+                    "..." if len(words) > 5 else msg.text
+                msg_text = msg_text[:10] + \
+                    "..." if len(msg_text) > 10 else msg_text
                 break
         if not msg_text:
             msg_text = "(No message)"
