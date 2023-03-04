@@ -10,11 +10,3 @@ def ask(messages):
     )
     ans = resp["choices"][0]["message"]["content"]
     return ans
-
-
-if __name__ == "__main__":
-    messages = [
-        {"role": "user", "content": "Hello"},
-    ]
-    ans = ask(messages)
-    print(ans)

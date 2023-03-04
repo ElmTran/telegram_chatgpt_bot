@@ -9,16 +9,19 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram import __version__ as TG_VER
 
-import logging
 from chatgpt import ask
 from model import (
+    engine,
+    Base,
     create_session,
-    fetch_sessions,
+    query_sessions,
     add_message,
-    fetch_messages,
-    del_session,
+    query_messages,
+    remove_session,
+    update_previous_messages,
 )
 from config import Config
+from logger import logger
 
 
 try:
@@ -34,15 +37,6 @@ if __version_info__ < (20, 0, 0, "alpha", 1):
     )
 
 
-# Logging
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-
-logger = logging.getLogger(__name__)
-
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # if no chat then create a new chat
     user_id = update.effective_user.id
@@ -54,7 +48,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             current_session_id, user_id))
         await update.message.reply_text(f"Session {args[0]} loaded.")
     else:
-        history = fetch_sessions(user_id)
+        history = query_sessions(user_id)
         if len(history) == 0:
             session_id = create_session(user_id)
             context.user_data["current_session_id"] = session_id
@@ -62,10 +56,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 session_id, user_id))
             await update.message.reply_text("New session created.")
         else:
-            await switch_chat(update, context)
+            await switch_session(update, context)
 
 
-async def new_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def new_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     session_id = create_session(user_id)
     context.user_data["current_session_id"] = session_id
@@ -73,9 +67,9 @@ async def new_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("New session created.")
 
 
-async def switch_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def switch_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
-    sessions = fetch_sessions(user_id)
+    sessions = query_sessions(user_id)
 
     if len(sessions) == 0:
         await update.message.reply_text("You have no chat history. Use /new to start a new chat.")
@@ -89,9 +83,9 @@ async def switch_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await update.message.reply_text(html, parse_mode=ParseMode.HTML)
 
 
-async def del_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def del_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     current_session_id = context.user_data["current_session_id"]
-    del_session(current_session_id)
+    remove_session(current_session_id)
     context.user_data["current_session_id"] = None
     logger.info("Session deleted: {} by {}".format(
         current_session_id, update.effective_user.id))
@@ -107,33 +101,45 @@ async def talk(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "Please use /new to create a new session or /switch to switch to an existing session."
         )
         return
-    prompt = fetch_messages(current_session_id)
+    prompt = query_messages(current_session_id)
     msg = update.message.text
     role = "user"
     if len(prompt) == 0:
         role = "system"
         msgs = [{"role": role, "content": msg}]
-        # todo: summary
     else:
+        summary = ""
+        all_text = "\n".join([m["content"] for m in prompt])
+        if len(all_text) > 3000:
+            msg = """
+            Please summarize the previous conversation. It will be used in the context of our subsequent conversations. Do not use like 'overall' to comment or draw conclusions about these contents.
+            """
+            msgs = prompt + [{"role": role, "content": msg}]
+            summary = ask(msgs)
+            update_previous_messages(current_session_id, summary)
+            prompt = prompt[0] + [{"role": "assistant", "content": summary}]
         msgs = prompt + [{"role": role, "content": msg}]
     ans = ask(msgs)
     add_message(current_session_id, role, msg)
     add_message(current_session_id, "assistant", ans)
     await update.message.reply_text(ans)
 
+
+def create_app() -> ApplicationBuilder:
+    app = ApplicationBuilder().token(Config.telegram.token).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("new", new_session))
+    app.add_handler(CommandHandler("switch", switch_session))
+    app.add_handler(CommandHandler("del", del_session))
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), talk))
+    return app
+
+
 if __name__ == '__main__':
-    application = ApplicationBuilder().token(Config.telegram.token).build()
+    # Check if tables exist
+    with engine.connect() as conn:
+        if not engine.dialect.has_table(conn, "session"):
+            Base.metadata.create_all(engine)
 
-    start_handler = CommandHandler('start', start)
-    new_chat_handler = CommandHandler('new', new_chat)
-    switch_chat_handler = CommandHandler('switch', switch_chat)
-    del_chat_handler = CommandHandler('del', del_chat)
-    talk_handler = MessageHandler(filters.TEXT & (~filters.COMMAND), talk)
-
-    application.add_handler(start_handler)
-    application.add_handler(new_chat_handler)
-    application.add_handler(switch_chat_handler)
-    application.add_handler(del_chat_handler)
-    application.add_handler(talk_handler)
-
-    application.run_polling()
+    app = create_app()
+    app.run_polling()
