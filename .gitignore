@@ -127,4 +127,4 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-config.template
+config_dev.py

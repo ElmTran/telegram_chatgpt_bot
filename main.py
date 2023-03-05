@@ -110,14 +110,12 @@ async def talk(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         summary = ""
         all_text = "\n".join([m["content"] for m in prompt])
-        if len(all_text) > 3000:
-            msg = """
-            Please summarize the previous conversation. It will be used in the context of our subsequent conversations. Do not use like 'overall' to comment or draw conclusions about these contents.
-            """
-            msgs = prompt + [{"role": role, "content": msg}]
-            summary = ask(msgs)
+        if len(all_text) > 5000:
+            request_text = "Please summarize the previous conversation. It will be used in the context of our subsequent conversations. Do not use like 'overall' to comment or draw conclusions about these contents."
+            summary_request = prompt + [{"role": role, "content": request_text}]
+            summary = ask(summary_request)
             update_previous_messages(current_session_id, summary)
-            prompt = prompt[0] + [{"role": "assistant", "content": summary}]
+            prompt = [prompt[0], {"role": "assistant", "content": summary}]
         msgs = prompt + [{"role": role, "content": msg}]
     ans = ask(msgs)
     add_message(current_session_id, role, msg)

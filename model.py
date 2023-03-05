@@ -81,9 +81,10 @@ def query_sessions(user_id):
 
 
 def remove_session(session_id):
+    now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     sess = Sess()
-    sess.query(Session).filter_by(id=session_id).update({"is_del": 1})
-    sess.query(Message).filter_by(session_id=session_id).update({"is_del": 1})
+    sess.query(Session).filter_by(id=session_id).update({"is_del": 1, "updated_at": now})
+    sess.query(Message).filter_by(session_id=session_id).update({"is_del": 1, "updated_at": now})
     sess.commit()
     sess.close()
 
@@ -123,10 +124,14 @@ def update_previous_messages(session_id, message):
     now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     sess = Sess()
     # del previous messages except the first one
+    min_id = sess.query(func.min(Message.id)).filter_by(
+        session_id=session_id).scalar()
+
     sess.query(Message).filter_by(session_id=session_id) \
-        .order_by(Message.created_at.desc()) \
-        .offset(1) \
-        .update({"is_del": 1})
+        .filter(Message.id != min_id) \
+        .filter_by(is_del=0) \
+        .update({"is_del": 1, "updated_at": now})
+
     new_message = Message(
         session_id=session_id,
         text=message,
