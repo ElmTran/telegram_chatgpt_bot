@@ -40,7 +40,7 @@ Thanks for your star and fork.
 
     cd telegram_chatgpt_bot
 
-    docker build -t telegram_chatgpt_bot .
+    docker build -t chatbot .
     ```
 
 3. Set your config in `config.py`.
@@ -49,7 +49,7 @@ Thanks for your star and fork.
 
     ```bash
 
-    docker run -d --name telegram_chatgpt_bot telegram_chatgpt_bot
+    docker run -d --name chatbot chatbot
     ```
 
 5. A template docker-compose.yml is provided. You can use it to deploy the bot.
@@ -58,7 +58,7 @@ Thanks for your star and fork.
     version: '3'
     services:
         chatbot:
-            image: elmtran/telegram_chatgpt_bot:latest
+            image: elmtran/chatbot:latest
             environment:
                 - TELEGRAM_TOKEN="token"
                 - MYSQL_HOST="localhost"
