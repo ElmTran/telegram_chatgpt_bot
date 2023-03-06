@@ -13,9 +13,9 @@ Thanks for your star and fork.
 2. Clone this repo and install dependencies.
 
     ```bash
-    git clone https://github.com/ElmTran/bushuohua.git
+    git clone https://github.com/ElmTran/telegram_chatgpt_bot.git
 
-    cd bushuohua
+    cd telegram_chatgpt_bot
 
     pip install -r requirements.txt
     ```
@@ -36,11 +36,11 @@ Thanks for your star and fork.
 
     ```bash
 
-    git clone https://github.com/ElmTran/bushuohua.
+    git clone https://github.com/ElmTran/telegram_chatgpt_bot.
 
-    cd bushuohua
+    cd telegram_chatgpt_bot
 
-    docker build -t bushuohua .
+    docker build -t telegram_chatgpt_bot .
     ```
 
 3. Set your config in `config.py`.
@@ -49,7 +49,7 @@ Thanks for your star and fork.
 
     ```bash
 
-    docker run -d --name bushuohua bushuohua
+    docker run -d --name telegram_chatgpt_bot telegram_chatgpt_bot
     ```
 
 5. A template docker-compose.yml is provided. You can use it to deploy the bot.
@@ -57,8 +57,8 @@ Thanks for your star and fork.
     ```yaml
     version: '3'
     services:
-        bushuohua:
-            image: elmtran/bushuohua:latest
+        chatbot:
+            image: elmtran/telegram_chatgpt_bot:latest
             environment:
                 - TELEGRAM_TOKEN="token"
                 - MYSQL_HOST="localhost"
