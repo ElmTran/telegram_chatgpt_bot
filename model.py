@@ -68,10 +68,10 @@ def query_sessions(user_id):
         for msg in first_messages:
             if sid == msg.session_id:
                 words = msg.text.split()
-                msg_text = " ".join(words[:5]) + \
-                    "..." if len(words) > 5 else msg.text
-                msg_text = msg_text[:10] + \
-                    "..." if len(msg_text) > 10 else msg_text
+                msg_text = " ".join(words[:7]) + \
+                    "..." if len(words) > 7 else msg.text
+                msg_text = msg_text[:30] + \
+                    "..." if len(msg_text) > 30 else msg_text
                 break
         if not msg_text:
             msg_text = "(No message)"
