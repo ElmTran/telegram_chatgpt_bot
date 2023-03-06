@@ -1,4 +1,4 @@
-# Telegram_ChatGPT_Bot
+# Telegram ChatGPT Bot
 
 A telegram bot using gpt-3.5-turbo model.   
 
