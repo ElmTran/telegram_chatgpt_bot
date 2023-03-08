@@ -112,7 +112,8 @@ async def talk(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         all_text = "\n".join([m["content"] for m in prompt])
         if len(all_text) > 5000:
             request_text = "Please summarize the previous conversation. It will be used in the context of our subsequent conversations. Do not use like 'overall' to comment or draw conclusions about these contents."
-            summary_request = prompt + [{"role": role, "content": request_text}]
+            summary_request = prompt + \
+                [{"role": role, "content": request_text}]
             summary = ask(summary_request)
             update_previous_messages(current_session_id, summary)
             prompt = [prompt[0], {"role": "assistant", "content": summary}]
@@ -120,7 +121,13 @@ async def talk(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     ans = ask(msgs)
     add_message(current_session_id, role, msg)
     add_message(current_session_id, "assistant", ans)
-    await update.message.reply_text(ans)
+    escape_chars = [
+        "*", "_", "[", "]", "(", ")", "~", "`", ">",
+        "#", "+", "-", "=", "|", "{", "}", ".", "!"
+    ]
+    for c in escape_chars:
+        ans = ans.replace(c, "\\" + c)
+    await update.message.reply_markdown_v2(ans)
 
 
 def create_app() -> ApplicationBuilder:
