@@ -1,3 +1,4 @@
+import re
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -121,13 +122,9 @@ async def talk(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     ans = ask(msgs)
     add_message(current_session_id, role, msg)
     add_message(current_session_id, "assistant", ans)
-    escape_chars = [
-        "*", "_", "[", "]", "(", ")", "~", "`", ">",
-        "#", "+", "-", "=", "|", "{", "}", ".", "!"
-    ]
-    for c in escape_chars:
-        ans = ans.replace(c, "\\" + c)
-    await update.message.reply_markdown_v2(ans)
+    escape = re.compile(r"([*_\[\]()~>#+-=|{}.!])")
+    ans = escape.sub(r"\\\1", ans)
+    await update.message.reply_text(ans, parse_mode=ParseMode.MARKDOWN_V2)
 
 
 def create_app() -> ApplicationBuilder:
