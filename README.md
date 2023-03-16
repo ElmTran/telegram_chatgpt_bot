@@ -20,7 +20,7 @@ Thanks for your star and fork.
     pip install -r requirements.txt
     ```
 
-3. Set your config in `config.py`.
+3. Copy `config/prod.template` to `config/prod.ini` and fill in the values.
 
 4. Run the bot.
 
@@ -43,16 +43,14 @@ Thanks for your star and fork.
     docker build -t chatbot .
     ```
 
-3. Set your config in `config.py`.
-
-4. Run the bot.
+3. Run the docker image.
 
     ```bash
-
-    docker run -d --name chatbot chatbot
+    docker run -d --name chatbot -v /path/to/prod.ini:/app/config/prod.ini chatbot
     ```
 
-5. A template docker-compose.yml is provided. You can use it to deploy the bot.
+
+4. A template docker-compose.yml is provided. You can use it to deploy the bot.
 
     ```yaml
     version: '3'
@@ -60,16 +58,10 @@ Thanks for your star and fork.
         chatbot:
             image: elmtran/chatbot:latest
             environment:
-                - TELEGRAM_TOKEN="token"
-                - MYSQL_HOST="localhost"
-                - MYSQL_PORT=3306
-                - MYSQL_DB="dbname"
-                - MYSQL_USER="username"
-                - MYSQL_PASSWORD="password"
-                - OPENAI_API_KEY="api_key"
-                - BOT_USERNAME="bot_username"
+                - CHATBOT_ENV=prod
+            volumes:
+                - /path/to/prod.ini:/app/config/prod.ini
     ```
-
 
 ## Built With
 

@@ -1,16 +1,7 @@
 # Build stage
 FROM python:3.8-alpine as build
 
-ENV TELEGRAM_TOKEN \
-    OPENAI_API_KEY
-
-ENV MYSQL_HOST="localhost" \
-    MYSQL_PORT=3306 \
-    MYSQL_DB="chatbot" \
-    MYSQL_USER="root" \
-    MYSQL_PASSWORD="changeme" \
-    OPENAI_MODEL="gpt-3.5-turbo" \
-    BOT_USERNAME="bushuohua_bot"
+ENV CHAT_ENV="prod"
 
 COPY requirements.txt .
 
@@ -23,16 +14,7 @@ RUN apk add --no-cache --virtual .build-deps gcc musl-dev libffi-dev openssl-dev
 # Runtime stage
 FROM python:3.8-alpine
 
-ENV TELEGRAM_TOKEN \
-    OPENAI_API_KEY
-
-ENV MYSQL_HOST="localhost" \
-    MYSQL_PORT=3306 \
-    MYSQL_DB="chatbot" \
-    MYSQL_USER="root" \
-    MYSQL_PASSWORD="changeme" \
-    OPENAI_MODEL="gpt-3.5-turbo" \
-    BOT_USERNAME="bushuohua_bot"
+ENV CHAT_ENV="prod"
 
 COPY --from=build /venv /venv
 WORKDIR /app

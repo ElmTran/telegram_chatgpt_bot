@@ -4,9 +4,11 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     MessageHandler,
+    ConversationHandler,
+    CallbackQueryHandler,
     filters,
 )
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode
 from telegram import __version__ as TG_VER
 
@@ -20,10 +22,13 @@ from model import (
     query_messages,
     remove_session,
     update_previous_messages,
+    add_prompt,
+    query_prompt,
+    query_prompts,
+    remove_prompt,
 )
-from config import Config
+from config import cfg
 from logger import logger
-
 
 try:
     from telegram import __version_info__
@@ -80,7 +85,7 @@ async def switch_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     for s in sessions:
         s_id = s["session_id"]
         s_content = f"{s_id}. {s['message']}"
-        html += f"<a href='https://t.me/{Config.bot.username}?start={s_id}'>{s_content}</a>\n"
+        html += f"<a href='https://t.me/{cfg.get('bot', 'name')}?start={s_id}'>{s_content}</a>\n"
     await update.message.reply_text(html, parse_mode=ParseMode.HTML)
 
 
@@ -93,6 +98,83 @@ async def del_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await update.message.reply_text(
         "Chat history deleted. Use /switch to switch to another chat or /new to start a new chat."
     )
+
+
+async def new_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text("Please enter the title of the prompt.")
+    return "NEW_PROMPT"
+
+
+async def callback_new_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    title = update.message.text
+    context.user_data["prompt_title"] = title
+    await update.message.reply_text("Please enter the content of the prompt.")
+    return "NEW_PROMPT_CONTENT"
+
+
+async def callback_new_prompt_content(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    content = update.message.text
+    user_id = update.effective_user.id
+    title = context.user_data["prompt_title"]
+    add_prompt(user_id, title, content)
+    await update.message.reply_text(f"Prompt {title} created.")
+    return ConversationHandler.END
+
+
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text("Operation cancelled.")
+    return ConversationHandler.END
+
+
+async def new_session_with_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    prompts = query_prompts(user_id)
+
+    if len(prompts) == 0:
+        await update.message.reply_text("You have no prompt. Use /newp to start a new prompt.")
+        return
+
+    keyboard = [[InlineKeyboardButton(prompt["title"], callback_data=str(
+        prompt["id"]))] for prompt in prompts]
+    await update.message.reply_text("Select a prompt to start a new session:", reply_markup=InlineKeyboardMarkup(keyboard))
+    return "SELECT_PROMPT"
+
+
+async def callback_new_session_with_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    user_id = update.effective_user.id
+    prompt_id = int(query.data)
+    prompt = query_prompt(prompt_id)
+    session_id = create_session(user_id)
+    context.user_data["current_session_id"] = session_id
+    add_message(session_id, "system", prompt['content'])
+    await query.edit_message_text(text=f"New session created with prompt {prompt['title']}")
+    return ConversationHandler.END
+
+
+async def del_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    prompts = query_prompts(user_id)
+
+    if len(prompts) == 0:
+        await update.message.reply_text("You have no prompt. Use /newp to start a new prompt.")
+        return
+
+    keyboard = [[InlineKeyboardButton(prompt["title"], callback_data=str(
+        prompt["id"]))] for prompt in prompts]
+    await update.message.reply_text("Select a prompt to delete:", reply_markup=InlineKeyboardMarkup(keyboard))
+    return "REMOVE_PROMPT"
+
+
+async def callback_del_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    prompt_id = int(query.data)
+    prompt = query_prompt(prompt_id)
+    remove_prompt(prompt_id)
+    await query.edit_message_text(text=f"Prompt {prompt['title']} deleted.")
+    return ConversationHandler.END
 
 
 async def talk(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -128,11 +210,34 @@ async def talk(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 def create_app() -> ApplicationBuilder:
-    app = ApplicationBuilder().token(Config.telegram.token).build()
+    token = cfg.get("bot", "token")
+    app = ApplicationBuilder().token(token).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("new", new_session))
     app.add_handler(CommandHandler("switch", switch_session))
     app.add_handler(CommandHandler("del", del_session))
+    app.add_handler(ConversationHandler(
+        entry_points=[CommandHandler("newp", new_prompt)],
+        states={
+            "NEW_PROMPT": [MessageHandler(filters.TEXT, callback_new_prompt)],
+            "NEW_PROMPT_CONTENT": [MessageHandler(filters.TEXT, callback_new_prompt_content)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    ))
+    app.add_handler(ConversationHandler(
+        entry_points=[CommandHandler("nswp", new_session_with_prompt)],
+        states={
+            "SELECT_PROMPT": [CallbackQueryHandler(callback_new_session_with_prompt, pattern=r"\d+")],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    ))
+    app.add_handler(ConversationHandler(
+        entry_points=[CommandHandler("delp", del_prompt)],
+        states={
+            "REMOVE_PROMPT": [CallbackQueryHandler(callback_del_prompt, pattern=r"\d+")],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    ))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), talk))
     return app
 
@@ -140,7 +245,7 @@ def create_app() -> ApplicationBuilder:
 if __name__ == '__main__':
     # Check if tables exist
     with engine.connect() as conn:
-        if not engine.dialect.has_table(conn, "session"):
+        if not engine.dialect.has_table(conn, "prompt"):
             Base.metadata.create_all(engine)
 
     app = create_app()

@@ -3,11 +3,11 @@ from sqlalchemy import Column, String, Integer, TEXT, create_engine, func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import OperationalError
-from config import Config
+from config import cfg
 from logger import logger
 try:
     engine = create_engine(
-        f"mysql+pymysql://{Config.mysql.user}:{Config.mysql.password}@{Config.mysql.host}:{Config.mysql.port}/{Config.mysql.db}?charset=utf8mb4",
+        f"mysql+pymysql://{cfg.get('mysql', 'user')}:{cfg.get('mysql', 'password')}@{cfg.get('mysql', 'host')}:{cfg.getint('mysql', 'port')}/{cfg.get('mysql', 'db')}?charset=utf8mb4",
     )
 except OperationalError as e:
     logger.error(e)
@@ -36,6 +36,17 @@ class Message(Base):
     is_del = Column(Integer, default=0)
     created_at = Column(String(20))  # format: 2021-01-01 00:00:00
     updated_at = Column(String(20))  # format: 2021-01-01 00:00:00
+
+
+class Prompt(Base):
+    __tablename__ = 'prompt'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String(255))
+    title = Column(String(1024))
+    text = Column(TEXT)
+    is_del = Column(Integer, default=0)
+    created_at = Column(String(20))
+    updated_at = Column(String(20))
 
 
 def create_session(user_id):
@@ -83,8 +94,10 @@ def query_sessions(user_id):
 def remove_session(session_id):
     now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     sess = Sess()
-    sess.query(Session).filter_by(id=session_id).update({"is_del": 1, "updated_at": now})
-    sess.query(Message).filter_by(session_id=session_id).update({"is_del": 1, "updated_at": now})
+    sess.query(Session).filter_by(id=session_id).update(
+        {"is_del": 1, "updated_at": now})
+    sess.query(Message).filter_by(session_id=session_id).update(
+        {"is_del": 1, "updated_at": now})
     sess.commit()
     sess.close()
 
@@ -141,3 +154,58 @@ def update_previous_messages(session_id, message):
     )
     sess.add(new_message)
     sess.commit()
+
+
+def add_prompt(user_id, title, text):
+    sess = Sess()
+    now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    prompt = Prompt(
+        user_id=user_id,
+        title=title,
+        text=text,
+        created_at=now,
+        updated_at=now
+    )
+    sess.add(prompt)
+    sess.commit()
+    sess.close()
+
+
+def query_prompts(user_id):
+    sess = Sess()
+    prompts = sess.query(Prompt) \
+        .filter_by(user_id=user_id) \
+        .filter_by(is_del=0) \
+        .all()
+    ret = [
+        {
+            "id": prompt.id,
+            "title": prompt.title,
+            "text": prompt.text,
+        } for prompt in prompts
+    ]
+    sess.close()
+    return ret
+
+
+def query_prompt(prompt_id):
+    sess = Sess()
+    prompt = sess.query(Prompt) \
+        .filter_by(id=prompt_id) \
+        .filter_by(is_del=0) \
+        .first()
+    ret = {
+        "title": prompt.title,
+        "content": prompt.text,
+    }
+    sess.close()
+    return ret
+
+
+def remove_prompt(prompt_id):
+    now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    sess = Sess()
+    sess.query(Prompt).filter_by(id=prompt_id).update(
+        {"is_del": 1, "updated_at": now})
+    sess.commit()
+    sess.close()

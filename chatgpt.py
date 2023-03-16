@@ -1,12 +1,12 @@
 import openai
-from config import Config
+from config import cfg
 
 
 def ask(messages):
     resp = openai.ChatCompletion.create(
-        model=Config.openai.model,
+        model=cfg.get('openai', 'model'),
         messages=messages,
-        api_key=Config.openai.api_key,
+        api_key=cfg.get('openai', 'api_key'),
     )
     ans = resp["choices"][0]["message"]["content"]
     return ans
