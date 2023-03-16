@@ -91,3 +91,7 @@ venv/
 */*.swp
 */*/*.swp
 */*/*/*.swp
+
+# config
+config/prod.ini
+config/dev.ini
